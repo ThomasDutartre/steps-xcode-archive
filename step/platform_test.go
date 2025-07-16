@@ -16,8 +16,8 @@ type MockTargetBuildSettingsProvider struct {
 }
 
 // TargetBuildSettings ...
-func (m *MockTargetBuildSettingsProvider) TargetBuildSettings(xcodeProj *xcodeproj.XcodeProj, target, configuration string, customOptions ...string) (serialized.Object, error) {
-	args := m.Called(xcodeProj, target, configuration)
+func (m *MockTargetBuildSettingsProvider) TargetBuildSettings(originalProjectPath string, xcodeProj *xcodeproj.XcodeProj, target, configuration string, customOptions ...string) (serialized.Object, error) {
+	args := m.Called(originalProjectPath, xcodeProj, target, configuration)
 	return args.Get(0).(serialized.Object), args.Error(1)
 }
 
@@ -94,10 +94,10 @@ func TestBuildableTargetPlatform(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			provider := &MockTargetBuildSettingsProvider{}
 			provider.
-				On("TargetBuildSettings", mock.AnythingOfType("*xcodeproj.XcodeProj"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+				On("TargetBuildSettings", mock.AnythingOfType("string"), mock.AnythingOfType("*xcodeproj.XcodeProj"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 				Return(tt.settings, nil)
 
-			got, err := BuildableTargetPlatform(tt.xcodeProj, tt.scheme, tt.configurationName, []string{}, provider, log.NewLogger())
+			got, err := BuildableTargetPlatform("/fake/project/path", tt.xcodeProj, tt.scheme, tt.configurationName, []string{}, provider, log.NewLogger())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildableTargetPlatform() error = %v, wantErr %v", err, tt.wantErr)
 				return

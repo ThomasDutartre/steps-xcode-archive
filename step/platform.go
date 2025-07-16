@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bitrise-io/go-utils/v2/log"
+	"github.com/bitrise-io/go-xcode/xcodebuild"
 	"github.com/bitrise-io/go-xcode/xcodeproject/schemeint"
 	"github.com/bitrise-io/go-xcode/xcodeproject/serialized"
 	"github.com/bitrise-io/go-xcode/xcodeproject/xcodeproj"
@@ -71,17 +72,23 @@ func OpenArchivableProject(pth, schemeName, configurationName string) (*xcodepro
 }
 
 type TargetBuildSettingsProvider interface {
-	TargetBuildSettings(xcodeProj *xcodeproj.XcodeProj, target, configuration string, customOptions ...string) (serialized.Object, error)
+	TargetBuildSettings(originalProjectPath string, xcodeProj *xcodeproj.XcodeProj, target, configuration string, customOptions ...string) (serialized.Object, error)
 }
 
 type XcodeBuild struct {
 }
 
-func (x XcodeBuild) TargetBuildSettings(xcodeProj *xcodeproj.XcodeProj, target, configuration string, customOptions ...string) (serialized.Object, error) {
-	return xcodeProj.TargetBuildSettings(target, configuration, customOptions...)
+func (x XcodeBuild) TargetBuildSettings(originalProjectPath string, xcodeProj *xcodeproj.XcodeProj, target, configuration string, customOptions ...string) (serialized.Object, error) {
+	// Use the original project path (which could be a workspace) instead of the xcodeproj path
+	commandModel := xcodebuild.NewShowBuildSettingsCommand(originalProjectPath)
+	commandModel.SetTarget(target)
+	commandModel.SetConfiguration(configuration)
+	commandModel.SetCustomOptions(customOptions)
+	return commandModel.RunAndReturnSettings()
 }
 
 func BuildableTargetPlatform(
+	originalProjectPath string,
 	xcodeProj *xcodeproj.XcodeProj,
 	scheme *xcscheme.Scheme,
 	configurationName string,
@@ -101,7 +108,7 @@ func BuildableTargetPlatform(
 		return "", fmt.Errorf("target not found: %s", archiveEntry.BuildableReference.BlueprintIdentifier)
 	}
 
-	settings, err := provider.TargetBuildSettings(xcodeProj, mainTarget.Name, configurationName, additionalOptions...)
+	settings, err := provider.TargetBuildSettings(originalProjectPath, xcodeProj, mainTarget.Name, configurationName, additionalOptions...)
 	if err != nil {
 		return "", fmt.Errorf("failed to get target (%s) build settings: %s", mainTarget.Name, err)
 	}
